@@ -1,1 +1,47 @@
-
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<title>ZPI Voice Assistant</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1>ZPI</h1>
+  <select id="lang" aria-label="Language">
+    <option value="en-IN">English (IN)</option>
+    <option value="te-IN">తెలుగు</option>
+    <option value="hi-IN">हिन्दी</option>
+    <option value="en-US">English (US)</option>
+  </select>
+</header>
+<main>
+  <div id="log" aria-live="polite"></div>
+  <canvas id="photo" hidden></canvas>
+  <video id="video" hidden controls playsinline></video>
+  <audio id="audio"></audio>
+</main>
+<footer>
+  <div class="tools">
+    <label class="chip">🎵 Music<input id="fMusic" type="file" accept="audio/*" multiple hidden></label>
+    <label class="chip">🖼️ Photo<input id="fPhoto" type="file" accept="image/*" hidden></label>
+    <label class="chip">🎬 Video<input id="fVideo" type="file" accept="video/*" hidden></label>
+    <button id="resetKey" class="chip" type="button">🔑 API key</button>
+  </div>
+  <form id="typed"><input id="txt" placeholder="Type a command…" autocomplete="off"><button>➤</button></form>
+  <button id="mic" type="button" aria-label="Start listening">🎤</button>
+</footer>
+<dialog id="dlg">
+  <form method="dialog">
+    <p>Enter your OpenWeatherMap API key.<br><small>Stored encrypted on this device. Asked only once.</small></p>
+    <input id="keyInput" type="password" autocomplete="off" required>
+    <div><button value="cancel" formnovalidate>Skip</button><button value="ok">Save</button></div>
+  </form>
+</dialog>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
