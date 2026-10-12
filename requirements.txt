@@ -1,0 +1,8 @@
+SpeechRecognition>=3.10
+PyAudio>=0.2.14
+pyttsx3>=2.90
+requests>=2.31
+keyring>=24.0
+pyautogui>=0.9.54
+Pillow>=10.0
+pytest>=8.0
