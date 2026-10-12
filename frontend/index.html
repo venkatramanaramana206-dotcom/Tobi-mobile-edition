@@ -172,144 +172,102 @@ function listen() {
   });
 }
 
-
-/* ===== Gemini AI — automatic model fallback ===== */
+/* ===== Gemini AI (model auto-detected, never hard-coded) ===== */
 const G = 'https://generativelanguage.googleapis.com/v1beta/';
-
 async function findModel(key) {
-  const r = await fetch(G + 'models?pageSize=100', {
-    headers: { 'x-goog-api-key': key }
-  });
-
-  if (!r.ok) {
-    throw new Error('Unable to list Gemini models. Check your API key.');
-  }
-
-  const data = await r.json();
-  const models = (data.models || [])
-    .filter(m =>
-      (m.supportedGenerationMethods || []).includes('generateContent')
-    )
-    .map(m => (m.name || '').replace(/^models\//, ''))
-    .filter(n =>
-      /^gemini-/i.test(n) &&
-      /flash/i.test(n) &&
-      !/(lite|image|tts|live|thinking|exp|preview)/i.test(n)
-    );
-
-  const candidates = [
-    ...new Set([
-      'gemini-flash-latest',
-      ...models.filter(n => !n.includes('latest')).sort().reverse(),
-      ...models.filter(n => n.includes('latest'))
-    ])
-  ].filter(n =>
-    n === 'gemini-flash-latest' || models.includes(n)
-  );
-
-  if (!candidates.length) {
-    throw new Error('No supported Gemini Flash model is available.');
-  }
-
-  return candidates;
+  const r = await fetch(G + 'models?pageSize=100', { headers: { 'x-goog-api-key': key } });
+  if (!r.ok) throw new Error('I could not list the available AI models.');
+  const names = (await r.json()).models
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace('models/', ''));
+  const pick = names.find(n => n === 'gemini-flash-latest')
+    || names.filter(n => /flash/.test(n) && !/lite|image|tts|live|thinking|exp|preview/.test(n)).sort().pop()
+    || names.find(n => /flash/.test(n));
+  if (!pick) throw new Error('No usable AI model was found for your key.');
+  localStorage.zpi_model = pick;
+  return pick;
 }
-
 async function gemini(text) {
   let key = await loadKey('gemini');
-
   if (!key) {
-    if (!(await setKey('gemini', 'Gemini'))) {
-      throw new Error('No AI key saved. Tap the AI key button to add one.');
-    }
+    if (!(await setKey('gemini', 'Gemini'))) throw new Error('No AI key saved. Tap the AI key button to add one.');
     key = await loadKey('gemini');
   }
-
-  const candidates = await findModel(key);
-  let lastError = '';
-
-  for (const model of candidates) {
+let model = localStorage.zpi_model || 'gemini-3.8-flash';
+  for (let attempt = 0; attempt < 2; attempt++) {
     let r;
-
     try {
-      r = await fetch(
-        G + 'models/' + model + ':generateContent',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key
-          },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{
-                text: 'You are ZPI, a helpful voice assistant. Answer briefly, in the same language the user speaks.'
-              }]
-            },
-            contents: [{
-              role: 'user',
-              parts: [{ text }]
-            }]
-          })
-        }
-      );
-    } catch {
-      throw new Error(
-        'Could not connect to Gemini. Check your internet connection.'
-      );
-    }
-
+      r = await fetch(G + 'models/' + model + ':generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: 'You are ZPI, a helpful voice assistant. Answer briefly, in the same language the user speaks.' }] },
+          contents: [{ role: 'user', parts: [{ text }] }],
+        }),
+      });
+    } catch { throw new Error('I could not reach the AI service. Check your internet.'); }
     if (r.ok) {
-      const data = await r.json();
-      const answer = (
-        data.candidates?.[0]?.content?.parts || []
-      ).map(p => p.text || '').join('').trim();
-
-      if (!answer) {
-        lastError = 'The model returned an empty answer.';
-        continue;
-      }
-
-      localStorage.setItem('zpi_model', model);
-      return answer;
+      const d = await r.json();
+      const out = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || []).map(p => p.text || '').join('').trim();
+      if (!out) throw new Error('The AI gave an empty answer. Please try again.');
+      localStorage.zpi_model = model;
+      return out;
     }
-
-    const data = await r.json().catch(() => ({}));
-    const message = data.error?.message || '';
-    lastError = message || ('HTTP ' + r.status);
-
-    if (
-      r.status === 400 &&
-      /API key|API_KEY_INVALID/i.test(message)
-    ) {
-      throw new Error(
-        'Your Gemini API key is invalid. Tap AI key to change it.'
-      );
-    }
-
-    if (r.status === 401 || r.status === 403) {
-      throw new Error(
-        'Gemini API access denied. Check your API key and permissions.'
-      );
-    }
-
-    // Try another model if this model is busy or unavailable.
-    if (
-      r.status === 404 ||
-      r.status === 429 ||
-      r.status >= 500 ||
-      /not found|high demand|overloaded|unavailable|resource exhausted/i.test(message)
-    ) {
-      continue;
-    }
-
-    throw new Error('Gemini API error: ' + lastError);
+    const err = ((await r.json().catch(() => ({}))).error || {}).message || '';
+    if ((r.status === 400 && /API key/i.test(err)) || r.status === 403) throw new Error('Your Gemini key was rejected. Tap the AI key button to change it.');
+    if (r.status === 429) throw new Error('AI limit reached. Please try again in a minute.');
+    if (attempt === 0 && (r.status === 404 || /no longer available|not found/i.test(err))) { model = await findModel(key); continue; }
+    throw new Error('AI error: ' + (err || r.status));
   }
-
-  throw new Error(
-    'All available Gemini Flash models are busy or unavailable. ' +
-    'Please try again shortly. ' + lastError
-  );
 }
+
+/* ===== Media ===== */
+const audio = $('audio'), cv = $('photo'), ctx = cv.getContext('2d'), vid = $('video');
+let list = [], idx = 0;
+function loadSong() { audio.src = URL.createObjectURL(list[idx]); }
+function need() { if (!list.length) throw new Error('No music loaded. Tap the Music button and pick songs.'); }
+audio.addEventListener('ended', () => { if (list.length > 1) music.next(); });
+function addMusic(files) { list = [...files]; idx = 0; loadSong(); log(list.length + ' song(s) ready.'); }
+const music = {
+  async play() { need(); await audio.play(); return 'Playing ' + list[idx].name.replace(/\.[^.]+$/, ''); },
+  pause() { audio.pause(); return 'Music paused'; },
+  next() { need(); idx = (idx + 1) % list.length; loadSong(); audio.play(); return 'Next song'; },
+  prev() { need(); idx = (idx - 1 + list.length) % list.length; loadSong(); audio.play(); return 'Previous song'; },
+  volume(up) { audio.volume = Math.min(1, Math.max(0, audio.volume + (up ? 0.2 : -0.2))); return 'Volume ' + Math.round(audio.volume * 100) + ' percent'; },
+};
+function addPhoto(file) {
+  const img = new Image();
+  img.onload = () => { cv.width = img.width; cv.height = img.height; ctx.drawImage(img, 0, 0); cv.hidden = false; log('Photo loaded. Say grayscale, blur, rotate, resize, or save photo.'); };
+  img.onerror = () => log('Could not open that image.', 'err');
+  img.src = URL.createObjectURL(file);
+}
+function edit(w, h, fn) {
+  if (cv.hidden) throw new Error('First add a photo using the Photo button.');
+  const t = document.createElement('canvas'); t.width = cv.width; t.height = cv.height;
+  t.getContext('2d').drawImage(cv, 0, 0);
+  cv.width = w; cv.height = h;
+  fn(ctx, t);
+}
+const filt = f => () => { edit(cv.width, cv.height, (c, t) => { c.filter = f; c.drawImage(t, 0, 0); }); return 'Done'; };
+const photo = {
+  gray: filt('grayscale(1)'),
+  blur: filt('blur(4px)'),
+  sepia: filt('sepia(1)'),
+  bright: filt('brightness(1.3)'),
+  rotate() { edit(cv.height, cv.width, (c, t) => { c.translate(cv.width, 0); c.rotate(Math.PI / 2); c.drawImage(t, 0, 0); }); return 'Rotated'; },
+  resize() { edit(Math.max(1, cv.width >> 1), Math.max(1, cv.height >> 1), (c, t) => c.drawImage(t, 0, 0, cv.width, cv.height)); return 'Resized to half'; },
+  save() { if (cv.hidden) throw new Error('No photo to save.'); log('Tap to download edited photo', 'bot', cv.toDataURL('image/jpeg', 0.92), 'zpi-photo.jpg'); return 'Photo ready. Tap the link to download.'; },
+};
+function addVideo(file) { vid.src = URL.createObjectURL(file); vid.hidden = false; log('Video loaded. Say trim video or compress video.'); }
+async function record(maxSec, bps, label) {
+  if (vid.hidden || !vid.src) throw new Error('First add a video using the Video button.');
+  if (!vid.captureStream || !window.MediaRecorder) throw new Error('Video editing is not supported in this browser. Use Chrome.');
+  vid.currentTime = 0;
+  const rec = new MediaRecorder(vid.captureStream(), { videoBitsPerSecond: bps });
+  const chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const done = new Promise(r => (rec.onstop = r));
+  const halt = () => { if (rec.state !== 'inactive') rec.stop(); vid.pause(); };
   vid.onended = halt;
   rec.start();
   await vid.play();
