@@ -193,7 +193,7 @@ async function gemini(text) {
     if (!(await setKey('gemini', 'Gemini'))) throw new Error('No AI key saved. Tap the AI key button to add one.');
     key = await loadKey('gemini');
   }
-  let model = localStorage.zpi_model || 'gemini-3.8 flash-latest';
+  let model = await findModel(key)
   for (let attempt = 0; attempt < 2; attempt++) {
     let r;
     try {
