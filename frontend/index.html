@@ -1,134 +1,419 @@
-/* ===== Gemini AI — Updated model ===== */
-const G = 'https://generativelanguage.googleapis.com/v1beta/';
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<title>ZPI Voice Assistant</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--acc:#38bdf8}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;display:flex;flex-direction:column}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
+h1{margin:0;color:var(--acc)}
+select,input,button{font:inherit}
+select{background:var(--card);color:var(--fg);border:0;border-radius:8px;padding:8px}
+main{flex:1;overflow:auto;padding:0 16px}
+#log{display:flex;flex-direction:column;gap:8px;padding-bottom:8px}
+.msg{padding:10px 14px;border-radius:14px;max-width:85%;background:var(--card);word-wrap:break-word;white-space:pre-wrap}
+.msg.me{align-self:flex-end;background:#075985}
+.msg.err{background:#7f1d1d;color:#fecaca}
+.msg a{color:var(--acc)}
+canvas,video{max-width:100%;border-radius:12px;margin:8px 0}
+footer{padding:8px 16px 16px;position:relative}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.chip{background:var(--card);color:var(--fg);border:0;border-radius:999px;padding:8px 12px;font-size:14px}
+#typed{display:flex;gap:8px;margin-right:84px}
+#typed input{flex:1;min-width:0;background:var(--card);color:var(--fg);border:0;border-radius:12px;padding:12px}
+#typed button{background:var(--card);color:var(--fg);border:0;border-radius:12px;padding:0 14px}
+#mic{position:absolute;right:16px;bottom:16px;width:68px;height:68px;border-radius:50%;border:0;background:var(--acc);font-size:30px}
+#mic.on{background:#ef4444}
+dialog{background:var(--card);color:var(--fg);border:0;border-radius:16px;width:90%;max-width:360px}
+dialog input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:0}
+dialog div{display:flex;gap:8px;justify-content:flex-end}
+dialog button{padding:8px 14px;border-radius:8px;border:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>ZPI</h1>
+  <select id="lang">
+    <option value="en-IN">English (IN)</option>
+    <option value="te-IN">తెలుగు</option>
+    <option value="hi-IN">हिन्दी</option>
+    <option value="en-US">English (US)</option>
+  </select>
+</header>
+<main>
+  <div id="log"></div>
+  <canvas id="photo" hidden></canvas>
+  <video id="video" hidden controls playsinline></video>
+  <audio id="audio"></audio>
+</main>
+<footer>
+  <div class="tools">
+    <label class="chip">🎵 Music<input id="fMusic" type="file" accept="audio/*" multiple hidden></label>
+    <label class="chip">🖼️ Photo<input id="fPhoto" type="file" accept="image/*" hidden></label>
+    <label class="chip">🎬 Video<input id="fVideo" type="file" accept="video/*" hidden></label>
+    <button id="keyAI" class="chip" type="button">🔑 AI key</button>
+    <button id="keyWx" class="chip" type="button">🔑 Weather key</button>
+  </div>
+  <form id="typed"><input id="txt" placeholder="Type a command or question…" autocomplete="off"><button>➤</button></form>
+  <button id="mic" type="button">🎤</button>
+</footer>
+<dialog id="dlg">
+  <form method="dialog">
+    <p id="dlgText"></p>
+    <small>Stored encrypted on this device. Asked only once.</small>
+    <input id="keyInput" type="password" autocomplete="off">
+    <div><button value="cancel">Skip</button><button value="ok">Save</button></div>
+  </form>
+</dialog>
+<script>
+const $ = id => document.getElementById(id);
 
-async function findModel(key) {
-  const r = await fetch(G + 'models?pageSize=100', {
-    headers: { 'x-goog-api-key': key }
+/* ===== UI ===== */
+function log(text, cls = 'bot', href, download) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + cls;
+  if (href) {
+    const a = document.createElement('a');
+    a.href = href; a.textContent = text;
+    if (download) a.download = download;
+    d.append(a);
+  } else d.textContent = text;
+  $('log').append(d);
+  d.scrollIntoView({ block: 'end' });
+}
+function askKey(label) {
+  const dlg = $('dlg'), inp = $('keyInput');
+  $('dlgText').textContent = 'Enter your ' + label + ' API key.';
+  return new Promise(res => {
+    inp.value = ''; dlg.returnValue = '';
+    dlg.onclose = () => res(dlg.returnValue === 'ok' && inp.value.trim() ? inp.value.trim() : null);
+    dlg.showModal();
   });
-
-  if (!r.ok) {
-    throw new Error(
-      'Unable to list Gemini models. Check your API key and internet connection.'
-    );
-  }
-
-  const data = await r.json();
-  const models = (data.models || []).filter(m =>
-    (m.supportedGenerationMethods || []).includes('generateContent')
-  );
-
-  const preferred = [
-    'gemini-3.8-flash',
-    'gemini-3.6-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-flash-latest'
-  ];
-
-  const model = preferred.find(name =>
-    models.some(m => m.name === 'models/' + name)
-  );
-
-  if (!model) {
-    throw new Error(
-      'No supported Gemini Flash model is available for this API key.'
-    );
-  }
-
-  localStorage.setItem('zpi_model', model);
-  return model;
 }
 
+/* ===== Secure key storage (AES-GCM, non-extractable key in IndexedDB) ===== */
+const idb = () => new Promise((res, rej) => {
+  const r = indexedDB.open('zpi-secure', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('k');
+  r.onsuccess = () => res(r.result);
+  r.onerror = () => rej(r.error);
+});
+const idbGet = async k => { const db = await idb(); return new Promise((res, rej) => { const q = db.transaction('k').objectStore('k').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); };
+const idbSet = async (k, v) => { const db = await idb(); return new Promise((res, rej) => { const q = db.transaction('k', 'readwrite').objectStore('k').put(v, k); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); };
+async function masterKey() {
+  let k = await idbGet('master');
+  if (!k) {
+    k = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    await idbSet('master', k);
+  }
+  return k;
+}
+async function saveKey(name, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await masterKey(), new TextEncoder().encode(text));
+  localStorage.setItem('zpi_key_' + name, JSON.stringify({ iv: [...iv], ct: [...new Uint8Array(ct)] }));
+}
+async function loadKey(name) {
+  const raw = localStorage.getItem('zpi_key_' + name);
+  if (!raw) return null;
+  try {
+    const { iv, ct } = JSON.parse(raw);
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, await masterKey(), new Uint8Array(ct));
+    return new TextDecoder().decode(pt);
+  } catch { return null; }
+}
+async function setKey(name, label) {
+  const k = await askKey(label);
+  if (!k) return false;
+  await saveKey(name, k);
+  return true;
+}
+
+/* ===== Speech ===== */
+const lang = { v: localStorage.zpi_lang || 'en-IN' };
+function speak(text) {
+  return new Promise(res => {
+    if (!('speechSynthesis' in window)) return res();
+    const clean = text.replace(/[*#`_]/g, '');
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = /[\u0C00-\u0C7F]/.test(clean) ? 'te-IN' : /[\u0900-\u097F]/.test(clean) ? 'hi-IN' : 'en-IN';
+    u.onend = u.onerror = () => res();
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    setTimeout(res, 20000);
+  });
+}
+const ERR = {
+  'not-allowed': 'Microphone permission is blocked. Allow the microphone in browser settings.',
+  'service-not-allowed': 'Microphone permission is blocked. Allow the microphone in browser settings.',
+  'network': 'Speech recognition needs internet. Please check your connection.',
+  'audio-capture': 'I could not find a microphone.',
+};
+function listen() {
+  return new Promise((res, rej) => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { const e = new Error('Voice recognition is not supported here. Please use Chrome on Android.'); e.fatal = true; return rej(e); }
+    const r = new SR();
+    r.lang = lang.v;
+    r.onresult = e => res(e.results[0][0].transcript.toLowerCase().trim());
+    r.onerror = e => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return res(null);
+      const err = new Error(ERR[e.error] || 'Voice recognition error: ' + e.error);
+      err.fatal = ['not-allowed', 'service-not-allowed', 'audio-capture'].includes(e.error);
+      rej(err);
+    };
+    r.onend = () => res(null);
+    r.start();
+  });
+}
+
+/* ===== Gemini AI (model auto-detected, never hard-coded) ===== */
+const G = 'https://generativelanguage.googleapis.com/v1beta/';
+async function findModel(key) {
+  const r = await fetch(G + 'models?pageSize=100', { headers: { 'x-goog-api-key': key } });
+  if (!r.ok) throw new Error('I could not list the available AI models.');
+  const names = (await r.json()).models
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace('models/', ''));
+  const pick = names.find(n => n === 'gemini-flash-latest')
+    || names.filter(n => /flash/.test(n) && !/lite|image|tts|live|thinking|exp|preview/.test(n)).sort().pop()
+    || names.find(n => /flash/.test(n));
+  if (!pick) throw new Error('No usable AI model was found for your key.');
+  localStorage.zpi_model = pick;
+  return pick;
+}
 async function gemini(text) {
   let key = await loadKey('gemini');
-
   if (!key) {
-    if (!(await setKey('gemini', 'Gemini'))) {
-      throw new Error(
-        'No AI key saved. Tap the AI key button to add one.'
-      );
-    }
+    if (!(await setKey('gemini', 'Gemini'))) throw new Error('No AI key saved. Tap the AI key button to add one.');
     key = await loadKey('gemini');
   }
-
-  // Do not reuse the old, unavailable model name.
-  let model = 'gemini-3.8-flash';
-  localStorage.setItem('zpi_model', model);
-
+  let model = localStorage.zpi_model || 'gemini-3.8 flash-latest';
   for (let attempt = 0; attempt < 2; attempt++) {
     let r;
-
     try {
-      r = await fetch(
-        G + 'models/' + model + ':generateContent',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': key
-          },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{
-                text: 'You are ZPI, a helpful voice assistant. Answer briefly in the same language the user speaks.'
-              }]
-            },
-            contents: [{
-              role: 'user',
-              parts: [{ text }]
-            }]
-          })
-        }
-      );
-    } catch {
-      throw new Error(
-        'Could not connect to Gemini. Check your internet connection.'
-      );
-    }
-
+      r = await fetch(G + 'models/' + model + ':generateContent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: 'You are ZPI, a helpful voice assistant. Answer briefly, in the same language the user speaks.' }] },
+          contents: [{ role: 'user', parts: [{ text }] }],
+        }),
+      });
+    } catch { throw new Error('I could not reach the AI service. Check your internet.'); }
     if (r.ok) {
-      const data = await r.json();
-      const answer = (
-        data.candidates?.[0]?.content?.parts || []
-      ).map(part => part.text || '').join('').trim();
-
-      if (!answer) {
-        throw new Error(
-          'Gemini returned an empty answer. Please try again.'
-        );
-      }
-
-      localStorage.setItem('zpi_model', model);
-      return answer;
+      const d = await r.json();
+      const out = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || []).map(p => p.text || '').join('').trim();
+      if (!out) throw new Error('The AI gave an empty answer. Please try again.');
+      localStorage.zpi_model = model;
+      return out;
     }
-
-    const data = await r.json().catch(() => ({}));
-    const message = data.error?.message || '';
-
-    if (r.status === 400 || r.status === 403) {
-      throw new Error(
-        'Gemini API key or request rejected. Check your API key and model access.'
-      );
-    }
-
-    if (r.status === 429) {
-      throw new Error(
-        'Gemini API limit reached. Please try again later.'
-      );
-    }
-
-    if (
-      attempt === 0 &&
-      (r.status === 404 ||
-       /not found|no longer available|unsupported model/i.test(message))
-    ) {
-      model = await findModel(key);
-      continue;
-    }
-
-    throw new Error(
-      'Gemini API error: ' + (message || r.status)
-    );
+    const err = ((await r.json().catch(() => ({}))).error || {}).message || '';
+    if ((r.status === 400 && /API key/i.test(err)) || r.status === 403) throw new Error('Your Gemini key was rejected. Tap the AI key button to change it.');
+    if (r.status === 429) throw new Error('AI limit reached. Please try again in a minute.');
+    if (attempt === 0 && (r.status === 404 || /no longer available|not found/i.test(err))) { model = await findModel(key); continue; }
+    throw new Error('AI error: ' + (err || r.status));
   }
-
-  throw new Error('Unable to get an AI response. Please try again.');
 }
+
+/* ===== Media ===== */
+const audio = $('audio'), cv = $('photo'), ctx = cv.getContext('2d'), vid = $('video');
+let list = [], idx = 0;
+function loadSong() { audio.src = URL.createObjectURL(list[idx]); }
+function need() { if (!list.length) throw new Error('No music loaded. Tap the Music button and pick songs.'); }
+audio.addEventListener('ended', () => { if (list.length > 1) music.next(); });
+function addMusic(files) { list = [...files]; idx = 0; loadSong(); log(list.length + ' song(s) ready.'); }
+const music = {
+  async play() { need(); await audio.play(); return 'Playing ' + list[idx].name.replace(/\.[^.]+$/, ''); },
+  pause() { audio.pause(); return 'Music paused'; },
+  next() { need(); idx = (idx + 1) % list.length; loadSong(); audio.play(); return 'Next song'; },
+  prev() { need(); idx = (idx - 1 + list.length) % list.length; loadSong(); audio.play(); return 'Previous song'; },
+  volume(up) { audio.volume = Math.min(1, Math.max(0, audio.volume + (up ? 0.2 : -0.2))); return 'Volume ' + Math.round(audio.volume * 100) + ' percent'; },
+};
+function addPhoto(file) {
+  const img = new Image();
+  img.onload = () => { cv.width = img.width; cv.height = img.height; ctx.drawImage(img, 0, 0); cv.hidden = false; log('Photo loaded. Say grayscale, blur, rotate, resize, or save photo.'); };
+  img.onerror = () => log('Could not open that image.', 'err');
+  img.src = URL.createObjectURL(file);
+}
+function edit(w, h, fn) {
+  if (cv.hidden) throw new Error('First add a photo using the Photo button.');
+  const t = document.createElement('canvas'); t.width = cv.width; t.height = cv.height;
+  t.getContext('2d').drawImage(cv, 0, 0);
+  cv.width = w; cv.height = h;
+  fn(ctx, t);
+}
+const filt = f => () => { edit(cv.width, cv.height, (c, t) => { c.filter = f; c.drawImage(t, 0, 0); }); return 'Done'; };
+const photo = {
+  gray: filt('grayscale(1)'),
+  blur: filt('blur(4px)'),
+  sepia: filt('sepia(1)'),
+  bright: filt('brightness(1.3)'),
+  rotate() { edit(cv.height, cv.width, (c, t) => { c.translate(cv.width, 0); c.rotate(Math.PI / 2); c.drawImage(t, 0, 0); }); return 'Rotated'; },
+  resize() { edit(Math.max(1, cv.width >> 1), Math.max(1, cv.height >> 1), (c, t) => c.drawImage(t, 0, 0, cv.width, cv.height)); return 'Resized to half'; },
+  save() { if (cv.hidden) throw new Error('No photo to save.'); log('Tap to download edited photo', 'bot', cv.toDataURL('image/jpeg', 0.92), 'zpi-photo.jpg'); return 'Photo ready. Tap the link to download.'; },
+};
+function addVideo(file) { vid.src = URL.createObjectURL(file); vid.hidden = false; log('Video loaded. Say trim video or compress video.'); }
+async function record(maxSec, bps, label) {
+  if (vid.hidden || !vid.src) throw new Error('First add a video using the Video button.');
+  if (!vid.captureStream || !window.MediaRecorder) throw new Error('Video editing is not supported in this browser. Use Chrome.');
+  vid.currentTime = 0;
+  const rec = new MediaRecorder(vid.captureStream(), { videoBitsPerSecond: bps });
+  const chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const done = new Promise(r => (rec.onstop = r));
+  const halt = () => { if (rec.state !== 'inactive') rec.stop(); vid.pause(); };
+  vid.onended = halt;
+  rec.start();
+  await vid.play();
+  setTimeout(halt, Math.min(maxSec, vid.duration || maxSec) * 1000);
+  await done;
+  const url = URL.createObjectURL(new Blob(chunks, { type: rec.mimeType || 'video/webm' }));
+  log('Tap to download ' + label + ' video', 'bot', url, 'zpi-' + label + '.webm');
+  return 'Your ' + label + ' video is ready. Tap the link to download.';
+}
+const video = { trim: () => record(10, 2500000, 'trimmed'), compress: () => record(Infinity, 600000, 'compressed') };
+
+/* ===== Commands ===== */
+const has = (t, ...k) => k.some(x => t.includes(x));
+const strip = (t, words) => t.replace(new RegExp('(' + words.join('|') + ')', 'g'), ' ').replace(/\s+/g, ' ').trim();
+function go(url, label) { log(label, 'bot', url); if (!window.open(url, '_blank')) location.href = url; }
+const time = () => 'The time is ' + new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+const date = () => 'Today is ' + new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+const PK = {
+  whatsapp: 'com.whatsapp', youtube: 'com.google.android.youtube', instagram: 'com.instagram.android',
+  facebook: 'com.facebook.katana', telegram: 'org.telegram.messenger', gmail: 'com.google.android.gm',
+  maps: 'com.google.android.apps.maps', chrome: 'com.android.chrome', spotify: 'com.spotify.music',
+  calculator: 'com.google.android.calculator', 'play store': 'com.android.vending',
+  phonepe: 'com.phonepe.app', 'google pay': 'com.google.android.apps.nbu.paisa.user',
+  photos: 'com.google.android.apps.photos', clock: 'com.google.android.deskclock',
+};
+function openApp(t) {
+  const n = strip(t, ['please', 'open', 'launch', 'start', 'ఓపెన్', 'app', 'యాప్']);
+  if (!n) throw new Error('I did not catch which app to open.');
+  let url;
+  if (n === 'camera') url = 'intent:#Intent;action=android.media.action.IMAGE_CAPTURE;end';
+  else if (n === 'settings') url = 'intent:#Intent;action=android.settings.SETTINGS;end';
+  else {
+    const p = PK[n];
+    if (!p) throw new Error("I don't know the app " + n + '. I can open: ' + Object.keys(PK).join(', ') + ', camera, settings.');
+    const fb = encodeURIComponent('https://play.google.com/store/apps/details?id=' + p);
+    url = 'intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=' + p + ';S.browser_fallback_url=' + fb + ';end';
+  }
+  log('Tap to open ' + n, 'bot', url);
+  location.href = url;
+  return 'Opening ' + n;
+}
+async function weather(t) {
+  const m = t.match(/(?:in|at|for)\s+([a-z .]+)$/);
+  const city = m ? m[1].trim() : (localStorage.zpi_city || 'Hyderabad');
+  let key = await loadKey('weather');
+  if (!key) {
+    if (!(await setKey('weather', 'OpenWeatherMap'))) throw new Error('No weather key saved. Tap the Weather key button to add one.');
+    key = await loadKey('weather');
+  }
+  let r;
+  try { r = await fetch('https://api.openweathermap.org/data/2.5/weather?q=' + encodeURIComponent(city) + '&appid=' + key + '&units=metric'); }
+  catch { throw new Error('I could not reach the weather service. Check your internet.'); }
+  if (r.status === 401) throw new Error('Your weather key is invalid, or not active yet. Tap the Weather key button to change it.');
+  if (r.status === 404) throw new Error('I could not find the city ' + city);
+  if (!r.ok) throw new Error('The weather service returned an error.');
+  const d = await r.json();
+  return 'In ' + city + ', it is ' + Math.round(d.main.temp) + ' degrees Celsius with ' + d.weather[0].description + '. Feels like ' + Math.round(d.main.feels_like) + '. Humidity ' + d.main.humidity + ' percent.';
+}
+function youtube(t) {
+  const q = strip(t, ['youtube', 'యూట్యూబ్', 'search', 'for', 'on', 'play', 'open', 'find']);
+  if (!q) throw new Error('What should I search on YouTube?');
+  go('https://www.youtube.com/results?search_query=' + encodeURIComponent(q), 'Tap to open YouTube results');
+  return 'Searching YouTube for ' + q;
+}
+function google(t) {
+  const q = strip(t, ['google', 'search', 'for', 'on', 'the', 'web', 'browser', 'internet', 'వెతుకు']);
+  if (!q) throw new Error('What should I search for?');
+  go('https://www.google.com/search?q=' + encodeURIComponent(q), 'Tap to open search results');
+  return 'Searching for ' + q;
+}
+const ROUTES = [
+  [t => has(t, 'reset api key', 'change api key', 'reset ai key'), async () => (await setKey('gemini', 'Gemini')) ? 'Your new AI key is saved.' : 'No key saved.'],
+  [t => has(t, 'reset weather key'), async () => (await setKey('weather', 'OpenWeatherMap')) ? 'Your new weather key is saved.' : 'No key saved.'],
+  [t => has(t, 'youtube', 'యూట్యూబ్'), youtube],
+  [t => has(t, 'weather', 'temperature', 'forecast', 'వాతావరణం', 'వెదర్'), weather],
+  [t => has(t, 'what time', 'current time', 'the time', 'సమయం', 'టైం'), time],
+  [t => has(t, 'what date', "today's date", 'what day', 'తేదీ', 'డేట్'), date],
+  [t => has(t, 'grayscale', 'black and white'), photo.gray],
+  [t => has(t, 'blur'), photo.blur],
+  [t => has(t, 'sepia'), photo.sepia],
+  [t => has(t, 'brighten', 'brightness'), photo.bright],
+  [t => has(t, 'rotate'), photo.rotate],
+  [t => has(t, 'resize'), photo.resize],
+  [t => has(t, 'save photo', 'download photo'), photo.save],
+  [t => has(t, 'trim video'), video.trim],
+  [t => has(t, 'compress video'), video.compress],
+  [t => has(t, 'next song', 'next track'), music.next],
+  [t => has(t, 'previous song', 'previous track'), music.prev],
+  [t => has(t, 'volume up', 'increase volume'), () => music.volume(true)],
+  [t => has(t, 'volume down', 'decrease volume'), () => music.volume(false)],
+  [t => has(t, 'pause', 'stop music'), music.pause],
+  [t => has(t, 'play music', 'play song', 'resume music') || /^play$/.test(t), music.play],
+  [t => /^(please )?(open|launch|start|ఓపెన్)\b/.test(t), openApp],
+  [t => /^(search|google)\b/.test(t), google],
+  [() => true, gemini],   // everything else goes to the AI
+];
+async function route(text) {
+  for (const [match, fn] of ROUTES) if (match(text)) return await fn(text);
+}
+
+/* ===== Main ===== */
+let on = false;
+async function say(text, cls = 'bot') { log(text, cls); await speak(text); }
+async function handle(text) {
+  log(text, 'me');
+  if (/^(exit|quit|stop listening|goodbye)/.test(text)) { stopMic(); return say('Goodbye!'); }
+  try {
+    const reply = await route(text);
+    await say(reply || 'Sorry, I did not understand that.');
+  } catch (e) {
+    console.error(e);
+    await say(e.message || 'Sorry, something went wrong.', 'err');
+  }
+}
+async function loop() {
+  while (on) {
+    try {
+      const t = await listen();
+      if (t) await handle(t);
+    } catch (e) {
+      await say(e.message, 'err');
+      if (e.fatal) return stopMic();
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+}
+function stopMic() { on = false; $('mic').classList.remove('on'); }
+$('mic').onclick = () => { if (on) return stopMic(); on = true; $('mic').classList.add('on'); loop(); };
+$('typed').onsubmit = e => {
+  e.preventDefault();
+  const t = $('txt').value.toLowerCase().trim();
+  $('txt').value = '';
+  if (t) handle(t);
+};
+$('lang').value = lang.v;
+$('lang').onchange = e => { lang.v = e.target.value; localStorage.zpi_lang = lang.v; log('Language: ' + lang.v); };
+$('fMusic').onchange = e => e.target.files.length && addMusic(e.target.files);
+$('fPhoto').onchange = e => e.target.files[0] && addPhoto(e.target.files[0]);
+$('fVideo').onchange = e => e.target.files[0] && addVideo(e.target.files[0]);
+$('keyAI').onclick = async () => { if (await setKey('gemini', 'Gemini')) log('AI key saved securely.'); };
+$('keyWx').onclick = async () => { if (await setKey('weather', 'OpenWeatherMap')) log('Weather key saved securely.'); };
+(async function init() {
+  if (!(await loadKey('gemini'))) await setKey('gemini', 'Gemini'); // first launch only
+  log('Hello, I am ZPI. Tap 🎤 and speak, or type a command or any question.');
+})();
+</script>
+</body>
+  </html>
