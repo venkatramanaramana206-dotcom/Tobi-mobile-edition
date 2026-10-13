@@ -22,11 +22,11 @@ main{flex:1;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;g
 .card{padding:10px 12px}
 .card small{display:block;font-size:11px;letter-spacing:3px;color:var(--c)}
 .card b{font-size:22px}
-.orb{position:relative;width:200px;height:200px;margin:12px auto;flex:none}
+.orb{position:relative;width:76px;height:76px;margin:20px auto 16px;flex:none}
 .orb:before,.orb:after{content:"";position:absolute;border-radius:50%;animation:r 10s linear infinite}
-.orb:before{inset:0;border:2px dashed #22d3ee88}
-.orb:after{inset:22px;border:3px dotted #38bdf8aa;animation-direction:reverse}
-#mic{position:absolute;inset:48px;border-radius:50%;border:2px solid var(--c);background:radial-gradient(#0e5a82,#04101f);color:#67e8f9;box-shadow:0 0 30px var(--c);display:flex;align-items:center;justify-content:center}
+.orb:before{inset:-9px;border:2px dashed #22d3ee88}
+.orb:after{inset:-18px;border:2px dotted #38bdf8aa;animation-direction:reverse}
+#mic{position:absolute;inset:0;border-radius:50%;border:2px solid var(--c);background:radial-gradient(#0e5a82,#04101f);color:#67e8f9;box-shadow:0 0 30px var(--c);display:flex;align-items:center;justify-content:center}
 #mic.on{border-color:#f87171;color:#fca5a5;box-shadow:0 0 40px #f87171;animation:p 1s infinite}
 @keyframes r{to{transform:rotate(360deg)}}
 @keyframes p{50%{transform:scale(1.08)}}
@@ -36,6 +36,9 @@ main{flex:1;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;g
 .er{background:#7f1d1d;color:#fecaca}
 .m a{color:var(--c)}
 canvas,video{max-width:100%;border-radius:12px}
+#ov[hidden]{display:none}
+#ov{position:fixed;left:16px;right:16px;top:84px;z-index:9;background:#0c4a6e;border:2px solid var(--c);border-radius:16px;box-shadow:0 0 30px #000}
+#ova{display:block;padding:18px;text-align:center;font-size:20px;color:#fff;text-decoration:none}
 details{padding:10px 12px}
 summary{color:var(--c);letter-spacing:3px;font-size:13px}
 .ed{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
@@ -67,14 +70,10 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
     <div class="card" id="wxc"><small>WEATHER</small><b id="wx">Tap</b></div>
     <div class="card"><small>VOICE</small><b id="vs">Standby</b></div>
   </div>
-  <div class="orb"><button id="mic" type="button" aria-label="Tap to speak"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div>
   <div id="log"></div>
   <details>
     <summary>TOOLS</summary>
     <div class="ed">
-      <label class="chip">📁 Songs<input id="fM" type="file" accept="audio/*" multiple hidden></label>
-      <label class="chip">🖼️ Photo<input id="fP" type="file" accept="image/*" hidden></label>
-      <label class="chip">🎬 Video<input id="fV" type="file" accept="video/*" hidden></label>
       <button id="kA" class="chip" type="button">🔑 AI key</button>
     </div>
     <div class="ed">
@@ -94,6 +93,12 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
   <audio id="audio"></audio>
 </main>
 <footer>
+  <div class="orb"><button id="mic" type="button" aria-label="Tap to speak"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div>
+  <div class="ed" style="margin:0">
+    <label class="chip">📁 Songs<input id="fM" type="file" accept="audio/*" multiple hidden></label>
+    <label class="chip">🖼️ Photo<input id="fP" type="file" accept="image/*" hidden></label>
+    <label class="chip">🎬 Video<input id="fV" type="file" accept="video/*" hidden></label>
+  </div>
   <div class="q">
     <button type="button" data-c="what time is it">Time</button>
     <button type="button" data-c="weather">Weather</button>
@@ -102,6 +107,7 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
   </div>
   <form id="f"><input id="txt" placeholder="Type a command or question…" autocomplete="off"><button id="go">Send</button></form>
 </footer>
+<div id="ov" hidden><a id="ova" href="#"></a></div>
 <dialog id="dlg">
   <form method="dialog">
     <p>Enter your Gemini API key.</p>
