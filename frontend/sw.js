@@ -1,8 +1,20 @@
-const C = 'zpi-v1';
-const FILES = ['./', 'index.html', 'css/style.css', 'js/main.js', 'js/commands.js', 'js/media.js', 'js/secure.js', 'js/speech.js', 'js/ui.js', 'manifest.json'];
-self.addEventListener('install', e => e.waitUntil(caches.open(C).then(c => c.addAll(FILES))));
-self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k))))));
+const C = 'zpi-v4';
+const FILES = ['./', 'index.html', 'app.js', 'manifest.json'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(C).then(c => Promise.allSettled(FILES.map(f => c.add(f)))));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== C).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  const r = e.request;
+  if (r.method !== 'GET' || new URL(r.url).origin !== location.origin) return;
+  e.respondWith(caches.match(r, { ignoreSearch: true }).then(hit => {
+    const net = fetch(r).then(res => {
+      if (res.ok) { const copy = res.clone(); caches.open(C).then(c => c.put(r, copy)); }
+      return res;
+    }).catch(() => hit || caches.match('index.html'));
+    return hit || net;
+  }));
 });
