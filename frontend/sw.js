@@ -1,4 +1,4 @@
-const C = 'zpi-v4';
+const C = 'zpi-v6';
 const FILES = ['./', 'index.html', 'app.js', 'manifest.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => Promise.allSettled(FILES.map(f => c.add(f)))));
