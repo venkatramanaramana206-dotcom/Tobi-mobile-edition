@@ -1,33 +1,31 @@
- <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#030a16">
 <link rel="manifest" href="manifest.json">
-<title>ZPI Voice Assistant</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap">
+<title>ZPI</title>
 <style>
 :root{--c:#22d3ee;--l:#0e6a8f;--k:#06182c}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{background:radial-gradient(circle at 50% 30%,#0a3a5c,#030a16 65%);color:#e2f6ff;font:600 17px Rajdhani,system-ui,sans-serif;display:flex;flex-direction:column}
-header{display:flex;justify-content:space-between;align-items:flex-end;padding:14px 18px 10px;border-bottom:1px solid #0e4f70}
-h1{margin:0;font-size:26px;font-weight:700;letter-spacing:8px;color:var(--c);text-shadow:0 0 12px var(--c)}
-.sub{font-size:11px;letter-spacing:3px;color:#7fb4c9}
-#st{display:block;font-size:12px;letter-spacing:1px;color:#4ade80;text-align:right;margin-bottom:4px}
+body{background:radial-gradient(circle at 50% 30%,#0a3a5c,#030a16 65%);color:#e2f6ff;font:600 17px system-ui,sans-serif;display:flex;flex-direction:column}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid #0e4f70}
+h1{margin:0;font-size:24px;letter-spacing:8px;color:var(--c);text-shadow:0 0 12px var(--c)}
+#st{font-size:12px;color:#4ade80}
 select,input,button{font:inherit}
-select{background:var(--k);color:inherit;border:1px solid var(--l);border-radius:8px;padding:4px}
+select,.card,details,.chip,form input{background:var(--k);color:inherit;border:1px solid var(--l);border-radius:12px}
+select{padding:4px}
 main{flex:1;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;gap:14px}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.card{border:1px solid var(--l);border-radius:14px;padding:10px 12px;background:var(--k)}
+.card{padding:10px 12px}
 .card small{display:block;font-size:11px;letter-spacing:3px;color:var(--c)}
-.card b{font-size:24px;font-weight:700}
-#wxc{cursor:pointer}
+.card b{font-size:22px}
 .orb{position:relative;width:200px;height:200px;margin:12px auto;flex:none}
 .orb:before,.orb:after{content:"";position:absolute;border-radius:50%;animation:r 10s linear infinite}
 .orb:before{inset:0;border:2px dashed #22d3ee88}
-.orb:after{inset:22px;border:3px dotted #38bdf8aa;animation-direction:reverse;animation-duration:16s}
+.orb:after{inset:22px;border:3px dotted #38bdf8aa;animation-direction:reverse}
 #mic{position:absolute;inset:48px;border-radius:50%;border:2px solid var(--c);background:radial-gradient(#0e5a82,#04101f);color:#67e8f9;box-shadow:0 0 30px var(--c);display:flex;align-items:center;justify-content:center}
 #mic.on{border-color:#f87171;color:#fca5a5;box-shadow:0 0 40px #f87171;animation:p 1s infinite}
 @keyframes r{to{transform:rotate(360deg)}}
@@ -35,19 +33,18 @@ main{flex:1;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;g
 #log{display:flex;flex-direction:column;gap:8px}
 .m{padding:8px 12px;border-radius:14px;max-width:90%;background:var(--k);border:1px solid var(--l);white-space:pre-wrap;word-wrap:break-word}
 .me{align-self:flex-end;background:#0c4a6e}
-.er{background:#7f1d1d;border-color:#b91c1c;color:#fecaca}
+.er{background:#7f1d1d;color:#fecaca}
 .m a{color:var(--c)}
-canvas,video{max-width:100%;border-radius:12px;border:1px solid var(--l)}
-details{border:1px solid var(--l);border-radius:14px;padding:10px 12px;background:var(--k)}
+canvas,video{max-width:100%;border-radius:12px}
+details{padding:10px 12px}
 summary{color:var(--c);letter-spacing:3px;font-size:13px}
 .ed{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.chip{background:transparent;color:inherit;border:1px solid var(--l);border-radius:999px;padding:6px 12px;font-size:15px}
-footer{padding:8px 18px 14px;border-top:1px solid #0e4f70;background:#030a16;display:flex;flex-direction:column;gap:8px}
-.q{display:flex;gap:8px}
-.q button{flex:1;height:44px;border-radius:12px;border:1px solid var(--c);background:transparent;color:var(--c);font-weight:700}
-form{display:flex;gap:8px}
-form input{flex:1;min-width:0;height:48px;border-radius:12px;border:1px solid var(--l);background:var(--k);color:inherit;padding:0 14px}
-#go{width:74px;height:48px;border-radius:12px;border:1px solid var(--c);background:#0c4a6e;color:inherit;font-weight:700}
+.chip{padding:6px 12px;font-size:15px;border-radius:999px;background:none}
+footer{padding:8px 18px 14px;border-top:1px solid #0e4f70;display:flex;flex-direction:column;gap:8px}
+.q,form{display:flex;gap:8px}
+.q button{flex:1;height:44px;border-radius:12px;border:1px solid var(--c);background:none;color:var(--c);font-weight:700}
+form input{flex:1;min-width:0;height:48px;padding:0 14px}
+#go{width:74px;border-radius:12px;border:1px solid var(--c);background:#0c4a6e;color:inherit;font-weight:700}
 dialog{background:var(--k);color:inherit;border:1px solid var(--l);border-radius:16px;width:90%;max-width:360px}
 dialog input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:0}
 dialog div{display:flex;gap:8px;justify-content:flex-end}
@@ -56,23 +53,21 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
 </head>
 <body>
 <header>
-  <div><h1>Z.P.I</h1><div class="sub">PERSONAL INTELLIGENCE SYSTEM</div></div>
-  <div><span id="st">● SYSTEM READY</span>
+  <div><h1>Z.P.I</h1><span id="st">● SYSTEM READY</span></div>
   <select id="lang">
-    <option value="en-IN">English (IN)</option>
+    <option value="en-IN">English</option>
     <option value="te-IN">తెలుగు</option>
     <option value="hi-IN">हिन्दी</option>
-    <option value="en-US">English (US)</option>
-  </select></div>
+  </select>
 </header>
 <main>
   <div class="cards">
-    <div class="card"><small>LOCAL TIME</small><b id="ck">--</b></div>
+    <div class="card"><small>TIME</small><b id="ck">--</b></div>
     <div class="card"><small>BATTERY</small><b id="bt">--</b></div>
     <div class="card" id="wxc"><small>WEATHER</small><b id="wx">Tap</b></div>
     <div class="card"><small>VOICE</small><b id="vs">Standby</b></div>
   </div>
-  <div class="orb"><button id="mic" type="button" aria-label="Tap to speak"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div>
+  <div class="orb"><button id="mic" type="button" aria-label="Tap to speak"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button></div>
   <div id="log"></div>
   <details>
     <summary>TOOLS</summary>
@@ -81,7 +76,6 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
       <label class="chip">🖼️ Photo<input id="fP" type="file" accept="image/*" hidden></label>
       <label class="chip">🎬 Video<input id="fV" type="file" accept="video/*" hidden></label>
       <button id="kA" class="chip" type="button">🔑 AI key</button>
-      <button id="kW" class="chip" type="button">🔑 Weather key</button>
     </div>
     <div class="ed">
       <button class="chip" type="button" data-c="grayscale">Gray</button>
@@ -93,8 +87,6 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
       <button class="chip" type="button" data-c="compress video">Compress video</button>
       <button class="chip" type="button" data-c="pause">Pause</button>
       <button class="chip" type="button" data-c="next song">Next</button>
-      <button class="chip" type="button" data-c="open whatsapp">WhatsApp</button>
-      <button class="chip" type="button" data-c="open camera">Camera</button>
     </div>
   </details>
   <canvas id="photo" hidden></canvas>
@@ -108,12 +100,12 @@ dialog button{padding:8px 14px;border-radius:8px;border:0}
     <button type="button" data-c="youtube search ">YouTube</button>
     <button type="button" data-c="play music">Music</button>
   </div>
-  <form id="f"><input id="txt" placeholder="Type a command…" autocomplete="off"><button id="go">Send</button></form>
+  <form id="f"><input id="txt" placeholder="Type a command or question…" autocomplete="off"><button id="go">Send</button></form>
 </footer>
 <dialog id="dlg">
   <form method="dialog">
-    <p id="dt"></p>
-    <small>Stored encrypted on this device. Asked only once.</small>
+    <p>Enter your Gemini API key.</p>
+    <small>Free key: aistudio.google.com/apikey. Stored encrypted on this device. Asked only once.</small>
     <input id="ki" type="password" autocomplete="off">
     <div><button value="cancel">Skip</button><button value="ok">Save</button></div>
   </form>
